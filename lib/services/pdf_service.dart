@@ -8,11 +8,11 @@ import '../models/page_result.dart';
 /// Android's share sheet - the app doesn't manage any persistent storage
 /// of its own for the exported file.
 class PdfService {
-  Future<void> shareAsPdf(List<PageResult> pages, {required bool annotated}) async {
+  Future<void> shareAsPdf(List<PageResult> pages) async {
     final doc = pw.Document();
 
     for (final page in pages) {
-      final bytes = await page.displayFile(annotated: annotated).readAsBytes();
+      final bytes = await page.displayFile.readAsBytes();
       final image = pw.MemoryImage(bytes);
       doc.addPage(
         pw.Page(

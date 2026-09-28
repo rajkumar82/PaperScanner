@@ -9,11 +9,10 @@ import 'package:image/image.dart' as img;
 /// something that isn't the booklet: the gooseneck stand, a hand, the
 /// floor, mid-repositioning).
 ///
-/// This replaces both the earlier coarse "does this look like a page"
-/// sanity check and running the mark detector on an uncropped, unskewed
-/// photo - background clutter around the page is gone before either the
-/// red-circle detector or the exported PDF ever see the image, and the
-/// page is deskewed to a straightened rectangle in the process.
+/// This replaces the earlier coarse "does this look like a page" sanity
+/// check - background clutter around the page is gone before the exported
+/// PDF ever sees the image, and the page is deskewed to a straightened
+/// rectangle in the process.
 ///
 /// Corners are approximated as the paper-mask pixels that minimise/
 /// maximise (x+y) and (x-y) - the standard cheap stand-in for true corner

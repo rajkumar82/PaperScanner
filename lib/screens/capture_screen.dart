@@ -237,20 +237,15 @@ class _CaptureScreenState extends State<CaptureScreen> {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.summarize, color: Colors.white70, size: 20),
+                    const Icon(Icons.description_outlined, color: Colors.white70, size: 20),
                     const SizedBox(width: 8),
                     Text(
-                      'Total: ${session.runningTotal}',
+                      '${session.pages.length} page${session.pages.length == 1 ? '' : 's'} scanned',
                       style: const TextStyle(
                         color: Colors.white,
-                        fontSize: 20,
+                        fontSize: 16,
                         fontWeight: FontWeight.bold,
                       ),
-                    ),
-                    const SizedBox(width: 12),
-                    Text(
-                      '(${session.pages.length} page${session.pages.length == 1 ? '' : 's'})',
-                      style: const TextStyle(color: Colors.white70, fontSize: 14),
                     ),
                   ],
                 ),
@@ -325,9 +320,8 @@ class _CaptureScreenState extends State<CaptureScreen> {
   }
 }
 
-/// Shows the most recently captured page: a spinner while its detection
-/// pass is still running, then the annotated thumbnail with its subtotal
-/// (or "-0-" if nothing was found on it) once ready.
+/// Shows the most recently captured page: a spinner while its resize pass
+/// is still running, then the thumbnail once ready.
 class _LastPageThumbnail extends StatelessWidget {
   const _LastPageThumbnail({required this.pages});
 
@@ -358,30 +352,7 @@ class _LastPageThumbnail extends StatelessWidget {
                   child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white70),
                 ),
               )
-            : Stack(
-                fit: StackFit.expand,
-                children: [
-                  Image.file(page.displayFile(annotated: true), fit: BoxFit.cover),
-                  Positioned(
-                    right: 4,
-                    bottom: 4,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: Colors.black87,
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Text(
-                        page.marks.isEmpty ? '-0-' : '${page.subtotal}',
-                        style: const TextStyle(
-                          color: Colors.greenAccent,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+            : Image.file(page.displayFile, fit: BoxFit.cover),
       ),
     );
   }

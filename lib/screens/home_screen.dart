@@ -15,7 +15,7 @@ class HomeScreen extends StatelessWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.fact_check_outlined, size: 96),
+                const Icon(Icons.document_scanner_outlined, size: 96),
                 const SizedBox(height: 16),
                 Text(
                   'PaperScanner',
@@ -23,7 +23,7 @@ class HomeScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Point your phone at an exam booklet and tap Start. '
+                  'Point your phone at a document and tap Start. '
                   'Each page is captured automatically as you turn it.',
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.bodyMedium,

@@ -5,24 +5,16 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
 import '../models/page_result.dart';
-import '../services/ocr_service.dart';
 import '../services/page_processor.dart';
 import '../services/pdf_service.dart';
 
 /// Holds everything for the scan currently in progress (or just finished):
-/// the captured/processed pages and the running total. Backed entirely by
-/// a scratch folder in temp storage that gets wiped at the start of every
-/// new session - nothing here is meant to persist.
+/// the captured/processed pages. Backed entirely by a scratch folder in
+/// temp storage that gets wiped at the start of every new session - nothing
+/// here is meant to persist.
 class ScanSession extends ChangeNotifier {
-  ScanSession()
-      : _ocr = OcrService(),
-        _pdf = PdfService() {
-    _processor = PageProcessor(_ocr);
-  }
-
-  final OcrService _ocr;
-  final PdfService _pdf;
-  late final PageProcessor _processor;
+  final PdfService _pdf = PdfService();
+  final PageProcessor _processor = PageProcessor();
 
   Directory? _sessionDir;
   final List<PageResult> _pages = [];
@@ -30,7 +22,6 @@ class ScanSession extends ChangeNotifier {
 
   List<PageResult> get pages => List.unmodifiable(_pages);
   bool get active => _active;
-  int get runningTotal => _pages.fold(0, (sum, page) => sum + page.subtotal);
   bool get isProcessing => _pages.any((page) => page.processing);
 
   /// Clears any previous session's files and starts a fresh one. Returns
@@ -58,7 +49,7 @@ class ScanSession extends ChangeNotifier {
   }
 
   /// Registers a freshly captured page and kicks off its (async, non
-  /// blocking) detection + OCR pass.
+  /// blocking) resize pass.
   Future<void> addCapturedPage(File rawImage) async {
     final page = PageResult(index: _pages.length, rawImageFile: rawImage);
     _pages.add(page);
@@ -68,13 +59,7 @@ class ScanSession extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> sharePdf({required bool annotated}) {
-    return _pdf.shareAsPdf(_pages, annotated: annotated);
-  }
-
-  @override
-  void dispose() {
-    _ocr.close();
-    super.dispose();
+  Future<void> sharePdf() {
+    return _pdf.shareAsPdf(_pages);
   }
 }

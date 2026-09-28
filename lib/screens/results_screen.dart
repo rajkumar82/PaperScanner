@@ -11,7 +11,6 @@ class ResultsScreen extends StatefulWidget {
 }
 
 class _ResultsScreenState extends State<ResultsScreen> {
-  bool _annotated = true;
   bool _sharing = false;
 
   @override
@@ -20,7 +19,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
     final pageCount = session.pages.length;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Total')),
+      appBar: AppBar(title: const Text('Scan complete')),
       body: SafeArea(
         child: Center(
           child: Padding(
@@ -28,24 +27,13 @@ class _ResultsScreenState extends State<ResultsScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(
-                  '${session.runningTotal}',
-                  style: Theme.of(context).textTheme.displayLarge,
-                ),
-                const SizedBox(height: 8),
+                const Icon(Icons.check_circle_outline, size: 64),
+                const SizedBox(height: 16),
                 Text(
                   '$pageCount page${pageCount == 1 ? '' : 's'} scanned',
-                  style: Theme.of(context).textTheme.bodyMedium,
+                  style: Theme.of(context).textTheme.headlineSmall,
                 ),
                 const SizedBox(height: 32),
-                CheckboxListTile(
-                  value: _annotated,
-                  onChanged: (v) => setState(() => _annotated = v ?? true),
-                  title: const Text('Annotated'),
-                  subtitle: const Text('Show the recognized numbers on each page in the PDF'),
-                  controlAffinity: ListTileControlAffinity.leading,
-                ),
-                const SizedBox(height: 16),
                 FilledButton.icon(
                   onPressed: pageCount == 0 || _sharing ? null : _onShare,
                   icon: _sharing
@@ -76,7 +64,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
   Future<void> _onShare() async {
     setState(() => _sharing = true);
     try {
-      await context.read<ScanSession>().sharePdf(annotated: _annotated);
+      await context.read<ScanSession>().sharePdf();
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
