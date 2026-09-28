@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
@@ -13,6 +14,13 @@ import 'results_screen.dart';
 
 /// How often to try a shot while [_Phase.searching].
 const Duration _pollInterval = Duration(milliseconds: 800);
+
+/// How long to keep looking for a clean, cropped page before giving up and
+/// just capturing whatever the camera currently sees - so a page that never
+/// gets a confident match (bad angle, cluttered background, odd lighting)
+/// doesn't leave the user stuck on "Looking for a page..." forever. Rescan
+/// lets them retry properly once they've repositioned.
+const Duration _fallbackAfter = Duration(seconds: 8);
 
 enum _Phase {
   /// Actively polling the camera, looking for a well-framed page.
@@ -38,6 +46,7 @@ class _CaptureScreenState extends State<CaptureScreen> {
   int _captureCount = 0;
   _Phase _phase = _Phase.searching;
   bool _capturing = false;
+  DateTime? _searchStartedAt;
 
   @override
   void initState() {
@@ -98,6 +107,7 @@ class _CaptureScreenState extends State<CaptureScreen> {
   /// and tries to find+crop a page in it, roughly every [_pollInterval].
   /// Stops itself as soon as a page is found (or the screen is gone).
   Future<void> _pollLoop() async {
+    _searchStartedAt = DateTime.now();
     while (mounted && _phase == _Phase.searching) {
       await _tryCaptureOnce();
       if (!mounted || _phase != _Phase.searching) return;
@@ -130,13 +140,20 @@ class _CaptureScreenState extends State<CaptureScreen> {
 
       // Finds the page, perspective-corrects and crops to just that
       // region - or returns null if nothing page-like was found yet.
-      // Everything downstream (detection and the exported PDF) works from
-      // this cropped image, never the raw uncropped photo.
       final cropped = await locateAndCropPage(bytes);
-      if (cropped == null || !mounted) return;
+      if (!mounted) return;
+
+      Uint8List? toSave = cropped;
+      if (toSave == null) {
+        final searching = DateTime.now().difference(_searchStartedAt ?? DateTime.now());
+        if (searching < _fallbackAfter) return; // keep looking
+        // Given up finding a clean page - capture the raw frame as-is so
+        // the user isn't stuck; Rescan lets them retry once repositioned.
+        toSave = bytes;
+      }
 
       final destPath = p.join(sessionDir, 'raw_${_captureCount++}.jpg');
-      await File(destPath).writeAsBytes(cropped, flush: true);
+      await File(destPath).writeAsBytes(toSave, flush: true);
       if (!mounted) return;
 
       setState(() => _phase = _Phase.found);
@@ -149,6 +166,15 @@ class _CaptureScreenState extends State<CaptureScreen> {
   }
 
   void _onNext() {
+    setState(() => _phase = _Phase.searching);
+    unawaited(_pollLoop());
+  }
+
+  /// Discards the just-captured page and goes back to searching, for when
+  /// it didn't come out well (e.g. the fallback capture caught something
+  /// other than the page) and the user wants to reposition and retry.
+  void _onRescan() {
+    context.read<ScanSession>().removeLastPage();
     setState(() => _phase = _Phase.searching);
     unawaited(_pollLoop());
   }
@@ -292,6 +318,19 @@ class _CaptureScreenState extends State<CaptureScreen> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 if (_phase == _Phase.found) ...[
+                  OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.white,
+                      side: const BorderSide(color: Colors.white70),
+                    ),
+                    onPressed: _onRescan,
+                    icon: const Icon(Icons.replay),
+                    label: const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 10, horizontal: 6),
+                      child: Text('Rescan', style: TextStyle(fontSize: 18)),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
                   FilledButton.icon(
                     onPressed: _onNext,
                     icon: const Icon(Icons.arrow_forward),

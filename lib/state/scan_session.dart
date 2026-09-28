@@ -62,4 +62,13 @@ class ScanSession extends ChangeNotifier {
   Future<void> sharePdf() {
     return _pdf.shareAsPdf(_pages);
   }
+
+  /// Discards the most recently captured page, e.g. when the user taps
+  /// Rescan because it didn't come out well. The next capture reuses its
+  /// index.
+  void removeLastPage() {
+    if (_pages.isEmpty) return;
+    _pages.removeLast();
+    notifyListeners();
+  }
 }
