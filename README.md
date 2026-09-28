@@ -30,6 +30,19 @@ edit that script and regenerate:
     dart run tool/gen_icon.dart          # writes assets/icon/icon.png and foreground.png
     dart run flutter_launcher_icons      # regenerates all android/app/src/main/res mipmaps
 
+## Releases
+
+Distributed as an Android APK via GitHub Releases, not the Play Store. The summary page links to
+`releases/latest/download/paperscanner.apk`, which always resolves to the newest release - so
+every release's APK asset must keep that exact filename:
+
+    flutter build apk --release
+    cp build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/paperscanner.apk
+    gh release create vX.Y.Z build/app/outputs/flutter-apk/paperscanner.apk \
+      -R rajkumar82/PaperScanner --title "PaperScanner vX.Y.Z" --notes "..."
+
+Tag the release to match the version in `pubspec.yaml`.
+
 ## Run locally
 
     flutter pub get
