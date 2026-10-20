@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:image/image.dart' as img;
 
 import '../theme.dart';
@@ -105,7 +106,7 @@ class _EditScreenState extends State<EditScreen> {
     if (_provider == null || _saving) return;
     setState(() => _saving = true);
     try {
-      final jpeg = await compute(_render, (
+      final jpeg = await _renderPage((
         path: widget.original.path,
         turns: _turns,
         l: _crop.left,
@@ -390,6 +391,31 @@ class _CropPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_CropPainter old) => old.rect != rect;
+}
+
+const _channel = MethodChannel('paperscanner/downloads');
+
+/// Renders the page with Android's native bitmap code (fast); falls back to
+/// the slower pure-Dart version if the native call is unavailable.
+Future<Uint8List> _renderPage(
+  ({String path, int turns, double l, double t, double r, double b}) a,
+) async {
+  try {
+    final bytes = await _channel.invokeMethod<Uint8List>('renderPage', {
+      'path': a.path,
+      'turns': a.turns,
+      'l': a.l,
+      't': a.t,
+      'r': a.r,
+      'b': a.b,
+      'maxSide': _maxSide,
+      'quality': 90,
+    });
+    if (bytes != null) return bytes;
+  } catch (e) {
+    debugPrint('Native render failed, using Dart fallback: $e');
+  }
+  return compute(_render, a);
 }
 
 // ---- isolate work ---------------------------------------------------------
