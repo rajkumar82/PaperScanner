@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import 'screens/home_screen.dart';
 import 'state/scan_session.dart';
+import 'theme.dart';
 
 void main() {
   runApp(const PaperScannerApp());
@@ -18,14 +19,9 @@ class PaperScannerApp extends StatelessWidget {
       child: MaterialApp(
         title: 'PaperScanner',
         debugShowCheckedModeBanner: false,
-        theme: ThemeData(
-          colorScheme: ColorScheme.fromSeed(
-            seedColor: const Color(0xFF2E7D32),
-            brightness: Brightness.dark,
-          ),
-          useMaterial3: true,
-        ),
-        themeMode: ThemeMode.dark,
+        theme: buildTheme(Brightness.light),
+        darkTheme: buildTheme(Brightness.dark),
+        themeMode: ThemeMode.system,
         home: const HomeScreen(),
       ),
     );

@@ -12,7 +12,7 @@ class PdfService {
     final doc = pw.Document();
 
     for (final page in pages) {
-      final bytes = await page.displayFile.readAsBytes();
+      final bytes = await page.file.readAsBytes();
       final image = pw.MemoryImage(bytes);
       doc.addPage(
         pw.Page(

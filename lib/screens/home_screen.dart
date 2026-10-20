@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../theme.dart';
 import 'capture_screen.dart';
 
 class HomeScreen extends StatelessWidget {
@@ -7,6 +8,7 @@ class HomeScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     return Scaffold(
       body: SafeArea(
         child: Center(
@@ -15,31 +17,34 @@ class HomeScreen extends StatelessWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.document_scanner_outlined, size: 96),
+                ShaderMask(
+                  shaderCallback: (r) => AppColors.grad.createShader(r),
+                  child: const Icon(Icons.document_scanner_outlined, size: 96, color: Colors.white),
+                ),
                 const SizedBox(height: 16),
                 Text(
                   'PaperScanner',
-                  style: Theme.of(context).textTheme.headlineMedium,
+                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                        color: c.text,
+                      ),
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Point your phone at a document and tap Start. '
-                  'Each page is captured automatically as you turn it.',
+                  'Scan pages with your camera, crop and rotate each one, '
+                  'then save them all as a PDF.',
                   textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.bodyMedium,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: c.muted),
                 ),
                 const SizedBox(height: 32),
-                FilledButton.icon(
+                PrimaryButton(
+                  icon: Icons.camera_alt,
+                  label: 'Start scan',
                   onPressed: () {
                     Navigator.of(context).push(
                       MaterialPageRoute(builder: (_) => const CaptureScreen()),
                     );
                   },
-                  icon: const Icon(Icons.play_arrow),
-                  label: const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-                    child: Text('Start', style: TextStyle(fontSize: 18)),
-                  ),
                 ),
               ],
             ),

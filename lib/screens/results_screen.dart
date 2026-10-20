@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../state/scan_session.dart';
+import '../theme.dart';
 
 class ResultsScreen extends StatefulWidget {
   const ResultsScreen({super.key});
@@ -11,58 +12,107 @@ class ResultsScreen extends StatefulWidget {
 }
 
 class _ResultsScreenState extends State<ResultsScreen> {
-  bool _sharing = false;
+  bool _saving = false;
 
   @override
   Widget build(BuildContext context) {
     final session = context.watch<ScanSession>();
-    final pageCount = session.pages.length;
+    final pages = session.pages;
+    final c = AppColors.of(context);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Scan complete')),
+      appBar: AppBar(
+        title: Text('${pages.length} page${pages.length == 1 ? '' : 's'} scanned'),
+        automaticallyImplyLeading: false,
+      ),
       body: SafeArea(
-        child: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(32),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.check_circle_outline, size: 64),
-                const SizedBox(height: 16),
-                Text(
-                  '$pageCount page${pageCount == 1 ? '' : 's'} scanned',
-                  style: Theme.of(context).textTheme.headlineSmall,
+        child: Column(
+          children: [
+            Expanded(
+              child: GridView.builder(
+                padding: const EdgeInsets.all(16),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 3,
+                  crossAxisSpacing: 12,
+                  mainAxisSpacing: 12,
+                  childAspectRatio: 0.72,
                 ),
-                const SizedBox(height: 32),
-                FilledButton.icon(
-                  onPressed: pageCount == 0 || _sharing ? null : _onShare,
-                  icon: _sharing
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.share),
-                  label: const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-                    child: Text('Share PDF', style: TextStyle(fontSize: 18)),
-                  ),
+                itemCount: pages.length,
+                itemBuilder: (context, i) => Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    Container(
+                      decoration: BoxDecoration(
+                        color: c.card,
+                        borderRadius: BorderRadius.circular(kButtonRadius),
+                        border: Border.all(color: c.line),
+                      ),
+                      clipBehavior: Clip.antiAlias,
+                      child: Image.file(pages[i].file, fit: BoxFit.contain),
+                    ),
+                    Positioned(
+                      top: 4,
+                      right: 4,
+                      child: Material(
+                        color: Colors.black54,
+                        shape: const CircleBorder(),
+                        child: InkWell(
+                          customBorder: const CircleBorder(),
+                          onTap: _saving ? null : () => session.removePage(i),
+                          child: const Padding(
+                            padding: EdgeInsets.all(4),
+                            child: Icon(Icons.close, size: 16, color: Colors.white),
+                          ),
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      left: 6,
+                      bottom: 6,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: Colors.black54,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          '${i + 1}',
+                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 8),
-                TextButton(
-                  onPressed: () => Navigator.of(context).popUntil((r) => r.isFirst),
-                  child: const Text('Done'),
-                ),
-              ],
+              ),
             ),
-          ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+              child: Row(
+                children: [
+                  SecondaryButton(
+                    label: 'Done',
+                    onPressed: _saving ? null : () => Navigator.of(context).popUntil((r) => r.isFirst),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: PrimaryButton(
+                      icon: Icons.picture_as_pdf,
+                      label: 'Save PDF',
+                      busy: _saving,
+                      onPressed: pages.isEmpty ? null : _onSave,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
 
-  Future<void> _onShare() async {
-    setState(() => _sharing = true);
+  Future<void> _onSave() async {
+    setState(() => _saving = true);
     try {
       await context.read<ScanSession>().sharePdf();
     } catch (e) {
@@ -72,7 +122,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
         );
       }
     } finally {
-      if (mounted) setState(() => _sharing = false);
+      if (mounted) setState(() => _saving = false);
     }
   }
 }

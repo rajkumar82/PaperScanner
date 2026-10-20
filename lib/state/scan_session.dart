@@ -5,28 +5,22 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
 import '../models/page_result.dart';
-import '../services/page_processor.dart';
 import '../services/pdf_service.dart';
 
-/// Holds everything for the scan currently in progress (or just finished):
-/// the captured/processed pages. Backed entirely by a scratch folder in
-/// temp storage that gets wiped at the start of every new session - nothing
-/// here is meant to persist.
+/// Holds the pages of the scan in progress. Backed by a scratch folder in
+/// temp storage that is wiped at the start of every new scan - nothing here
+/// is meant to persist.
 class ScanSession extends ChangeNotifier {
   final PdfService _pdf = PdfService();
-  final PageProcessor _processor = PageProcessor();
 
   Directory? _sessionDir;
   final List<PageResult> _pages = [];
-  bool _active = false;
+  int _fileCounter = 0;
 
   List<PageResult> get pages => List.unmodifiable(_pages);
-  bool get active => _active;
-  bool get isProcessing => _pages.any((page) => page.processing);
 
-  /// Clears any previous session's files and starts a fresh one. Returns
-  /// the folder new captures should be written into.
-  Future<String> start() async {
+  /// Clears any previous scan's files and starts a fresh one.
+  Future<void> start() async {
     final tempRoot = await getTemporaryDirectory();
     final dir = Directory(p.join(tempRoot.path, 'paperscanner_session'));
     if (await dir.exists()) {
@@ -36,39 +30,26 @@ class ScanSession extends ChangeNotifier {
 
     _sessionDir = dir;
     _pages.clear();
-    _active = true;
-    notifyListeners();
-    return dir.path;
-  }
-
-  String get sessionDirPath => _sessionDir!.path;
-
-  void stop() {
-    _active = false;
+    _fileCounter = 0;
     notifyListeners();
   }
 
-  /// Registers a freshly captured page and kicks off its (async, non
-  /// blocking) resize pass.
-  Future<void> addCapturedPage(File rawImage) async {
-    final page = PageResult(index: _pages.length, rawImageFile: rawImage);
-    _pages.add(page);
-    notifyListeners();
+  /// A fresh, unique path inside the scratch folder.
+  String newFilePath(String name) =>
+      p.join(_sessionDir!.path, '${_fileCounter++}_$name');
 
-    await _processor.process(page, sessionDirPath);
+  void addPage(File file) {
+    _pages.add(PageResult(index: _pages.length, file: file));
     notifyListeners();
   }
 
-  Future<void> sharePdf() {
-    return _pdf.shareAsPdf(_pages);
-  }
-
-  /// Discards the most recently captured page, e.g. when the user taps
-  /// Rescan because it didn't come out well. The next capture reuses its
-  /// index.
-  void removeLastPage() {
-    if (_pages.isEmpty) return;
-    _pages.removeLast();
+  void removePage(int index) {
+    _pages.removeAt(index);
+    for (var i = 0; i < _pages.length; i++) {
+      _pages[i] = PageResult(index: i, file: _pages[i].file);
+    }
     notifyListeners();
   }
+
+  Future<void> sharePdf() => _pdf.shareAsPdf(_pages);
 }

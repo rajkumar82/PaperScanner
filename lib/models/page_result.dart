@@ -1,28 +1,12 @@
 import 'dart:io';
 
-/// The outcome of capturing and processing a single scanned page.
+/// One finished page: the user's captured photo after rotate + crop.
 class PageResult {
-  PageResult({
-    required this.index,
-    required this.rawImageFile,
-    this.processing = true,
-  });
+  PageResult({required this.index, required this.file});
 
-  /// 0-based capture order.
+  /// 0-based order in the PDF.
   final int index;
 
-  /// The original full-resolution photo as captured, straight off the
-  /// camera. Not used for display/export - too large - kept only in case
-  /// a future version wants to re-process a page.
-  final File rawImageFile;
-
-  /// The page resized to display/export resolution. Null until processing
-  /// finishes.
-  File? displayImageFile;
-
-  /// True while the background resize pass for this page is still running.
-  bool processing;
-
-  /// Which image to show/export for this page.
-  File get displayFile => displayImageFile ?? rawImageFile;
+  /// The rotated, cropped and resized JPEG used for display and export.
+  final File file;
 }
