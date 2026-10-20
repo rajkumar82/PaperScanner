@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'screens/home_screen.dart';
-import 'state/scan_session.dart';
+import 'state/scan_store.dart';
 import 'theme.dart';
 
 void main() {
@@ -15,7 +15,7 @@ class PaperScannerApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
-      create: (_) => ScanSession(),
+      create: (_) => ScanStore()..load(),
       child: MaterialApp(
         title: 'PaperScanner',
         debugShowCheckedModeBanner: false,

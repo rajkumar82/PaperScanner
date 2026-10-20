@@ -9,12 +9,22 @@ detection. UI follows the shared web-app theme (blue-to-violet gradient buttons,
 
 - **Capture** (`lib/screens/capture_screen.dart`): live preview + shutter; autofocuses first.
 - **Edit** (`lib/screens/edit_screen.dart`): rotate in 90 degree steps and a draggable crop
-  rectangle; on Next/Stop the rotated + cropped page is rendered off the UI thread (`compute()`).
-- **Results** (`lib/screens/results_screen.dart`): thumbnails (remove any page), Save, Share.
-- **PDF** (`lib/services/pdf_service.dart`): one A4 page per scan. Saving goes through a small MediaStore channel in `MainActivity.kt` (Android 10+); Share saves first, then opens the share sheet.
+  rectangle. Shows the photo instantly via Flutter's native decoder; the slow pure-Dart
+  rotate/crop/resize/encode runs once (in `compute()`) when you tap Next/Stop/Apply.
+- **Library** (`lib/screens/scans_screen.dart`, `lib/screens/scan_detail_screen.dart`): the
+  **Scans** button lists recent scans (thumbnail, date, page count, delete). A scan shows its
+  pages with **Save**, **Share**, **Edit** (walks through the pages from the first, re-adjusting
+  crop/rotation; tap a page to start from it) and **Add page**. There is no "Done" - everything
+  is saved as you go.
+- **Storage** (`lib/models/scan.dart`, `lib/state/scan_store.dart`): each scan is a folder
+  `<app documents>/scans/<id>/` holding the untouched originals (`orig_*.jpg`), the rendered pages
+  (`page_*.jpg`) and `scan.json` (id, createdAt, per page: original, rendered, turns, crop). Edits
+  always re-render from the original, so re-cropping is lossless. A scan folder is only created
+  once its first page is saved. Scans stay until deleted (or the app's data is cleared).
+- **PDF** (`lib/services/pdf_service.dart`): one A4 page per scan page. Saving goes through a small
+  MediaStore channel in `MainActivity.kt` (Android 10+); Share saves to Downloads first, then opens
+  the share sheet.
 - **Theme** (`lib/theme.dart`): palette and button widgets matching fileshare/clipboard/summary.
-
-Pages live in a scratch folder under temp storage that is wiped when you tap Start scan.
 
 ## Launcher icon
 

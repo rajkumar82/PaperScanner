@@ -3,9 +3,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image/image.dart' as img;
-import 'package:provider/provider.dart';
 
-import '../state/scan_session.dart';
 import '../theme.dart';
 
 /// What the user chose after editing a page.
@@ -14,13 +12,37 @@ enum EditOutcome { next, stop }
 /// Longest side of an exported page, in pixels.
 const int _maxSide = 2200;
 
-/// Crop + rotate a freshly captured photo. Popping with an [EditOutcome]
-/// means the page was added to the session; popping with null means the
-/// photo was discarded (retake).
-class EditScreen extends StatefulWidget {
-  const EditScreen({super.key, required this.photo});
+/// The user's choices for a page, plus its rendered (rotated + cropped)
+/// JPEG. Returned by [EditScreen]; null means the user backed out.
+class EditResult {
+  EditResult(this.outcome, this.turns, this.crop, this.jpeg);
 
-  final File photo;
+  final EditOutcome outcome;
+  final int turns;
+  final Rect crop;
+  final Uint8List jpeg;
+}
+
+/// Crop + rotate one photo. In [captureMode] (a fresh shot) the buttons are
+/// Retake / Stop / Next; otherwise (re-editing a saved page) they are
+/// Cancel / Apply / Next, and Next only shows when [hasNext].
+class EditScreen extends StatefulWidget {
+  const EditScreen({
+    super.key,
+    required this.original,
+    this.initialTurns = 0,
+    this.initialCrop,
+    this.captureMode = true,
+    this.hasNext = true,
+    this.title = 'Crop & rotate',
+  });
+
+  final File original;
+  final int initialTurns;
+  final Rect? initialCrop;
+  final bool captureMode;
+  final bool hasNext;
+  final String title;
 
   @override
   State<EditScreen> createState() => _EditScreenState();
@@ -29,9 +51,9 @@ class EditScreen extends StatefulWidget {
 class _EditScreenState extends State<EditScreen> {
   ImageProvider? _provider; // the photo as captured
   Size _size = Size.zero; // displayed pixel size (EXIF-oriented)
-  int _turns = 0; // clockwise quarter turns applied on top of the photo
+  late int _turns = widget.initialTurns; // clockwise quarter turns on the photo
   // Crop rectangle in the *displayed* (rotated) image, as 0..1 fractions.
-  Rect _crop = const Rect.fromLTRB(0, 0, 1, 1);
+  late Rect _crop = widget.initialCrop ?? const Rect.fromLTRB(0, 0, 1, 1);
   bool _saving = false;
   bool _dragging = false; // a crop drag is in progress: ignore system back
   String? _loadError;
@@ -42,12 +64,11 @@ class _EditScreenState extends State<EditScreen> {
     _load();
   }
 
-  /// Shows the camera's JPEG straight away: Flutter decodes it natively
-  /// (and applies its EXIF rotation), which is near-instant. The slow
-  /// pure-Dart decode/crop/encode only happens once, when the user taps
-  /// Next/Stop.
+  /// Shows the photo straight away: Flutter decodes it natively (and applies
+  /// its EXIF rotation), which is near-instant. The slow pure-Dart
+  /// decode/crop/encode only happens once, when the user taps Next/Stop.
   Future<void> _load() async {
-    final provider = FileImage(widget.photo);
+    final provider = FileImage(widget.original);
     final stream = provider.resolve(ImageConfiguration.empty);
     late final ImageStreamListener listener;
     listener = ImageStreamListener(
@@ -84,25 +105,23 @@ class _EditScreenState extends State<EditScreen> {
     if (_provider == null || _saving) return;
     setState(() => _saving = true);
     try {
-      final session = context.read<ScanSession>();
-      final out = await compute(_render, (
-        path: widget.photo.path,
+      final jpeg = await compute(_render, (
+        path: widget.original.path,
         turns: _turns,
         l: _crop.left,
         t: _crop.top,
         r: _crop.right,
         b: _crop.bottom,
       ));
-      final file = File(session.newFilePath('page.jpg'));
-      await file.writeAsBytes(out, flush: true);
-      session.addPage(file);
-      if (mounted) Navigator.of(context).pop(outcome);
+      if (mounted) {
+        Navigator.of(context).pop(EditResult(outcome, _turns, _crop, jpeg));
+      }
     } catch (e) {
       if (mounted) {
         setState(() => _saving = false);
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Could not save the page: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not process the page: $e')),
+        );
       }
     }
   }
@@ -119,7 +138,7 @@ class _EditScreenState extends State<EditScreen> {
       canPop: !_dragging,
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('Crop & rotate'),
+          title: Text(widget.title),
           actions: [
             IconButton(
               tooltip: 'Rotate left',
@@ -182,25 +201,39 @@ class _EditScreenState extends State<EditScreen> {
                 child: Row(
                   children: [
                     SecondaryButton(
-                      icon: Icons.replay,
-                      label: 'Retake',
+                      icon: widget.captureMode ? Icons.replay : Icons.close,
+                      label: widget.captureMode ? 'Retake' : 'Cancel',
                       onPressed: _saving
                           ? null
                           : () => Navigator.of(context).pop(),
                     ),
                     const Spacer(),
-                    SecondaryButton(
-                      icon: Icons.stop,
-                      label: 'Stop',
-                      onPressed: ready ? () => _commit(EditOutcome.stop) : null,
-                    ),
-                    const SizedBox(width: 10),
-                    PrimaryButton(
-                      icon: Icons.arrow_forward,
-                      label: 'Next',
-                      busy: _saving,
-                      onPressed: ready ? () => _commit(EditOutcome.next) : null,
-                    ),
+                    if (widget.hasNext) ...[
+                      SecondaryButton(
+                        icon: widget.captureMode ? Icons.stop : Icons.check,
+                        label: widget.captureMode ? 'Stop' : 'Apply',
+                        onPressed: ready
+                            ? () => _commit(EditOutcome.stop)
+                            : null,
+                      ),
+                      const SizedBox(width: 10),
+                      PrimaryButton(
+                        icon: Icons.arrow_forward,
+                        label: 'Next',
+                        busy: _saving,
+                        onPressed: ready
+                            ? () => _commit(EditOutcome.next)
+                            : null,
+                      ),
+                    ] else
+                      PrimaryButton(
+                        icon: widget.captureMode ? Icons.stop : Icons.check,
+                        label: widget.captureMode ? 'Stop' : 'Apply',
+                        busy: _saving,
+                        onPressed: ready
+                            ? () => _commit(EditOutcome.stop)
+                            : null,
+                      ),
                   ],
                 ),
               ),

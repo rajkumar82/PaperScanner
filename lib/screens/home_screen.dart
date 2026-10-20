@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../theme.dart';
 import 'capture_screen.dart';
+import 'scans_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -40,14 +41,34 @@ class HomeScreen extends StatelessWidget {
                       ?.copyWith(color: c.muted),
                 ),
                 const SizedBox(height: 32),
-                PrimaryButton(
-                  icon: Icons.camera_alt,
-                  label: 'Start scan',
-                  onPressed: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => const CaptureScreen()),
-                    );
-                  },
+                Wrap(
+                  alignment: WrapAlignment.center,
+                  spacing: 12,
+                  runSpacing: 12,
+                  children: [
+                    PrimaryButton(
+                      icon: Icons.camera_alt,
+                      label: 'Start scan',
+                      onPressed: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => const CaptureScreen(),
+                          ),
+                        );
+                      },
+                    ),
+                    SecondaryButton(
+                      icon: Icons.history,
+                      label: 'Scans',
+                      onPressed: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => const ScansScreen(),
+                          ),
+                        );
+                      },
+                    ),
+                  ],
                 ),
               ],
             ),

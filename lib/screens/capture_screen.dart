@@ -4,16 +4,20 @@ import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../state/scan_session.dart';
+import '../models/scan.dart';
+import '../state/scan_store.dart';
 import '../theme.dart';
 import 'edit_screen.dart';
-import 'results_screen.dart';
+import 'scan_detail_screen.dart';
 
 /// Live camera preview with a shutter button. Each shot goes to the
 /// [EditScreen] for crop/rotate, then the user either continues scanning or
 /// stops and saves.
 class CaptureScreen extends StatefulWidget {
-  const CaptureScreen({super.key});
+  const CaptureScreen({super.key, this.scan});
+
+  /// An existing scan to add pages to; null starts a new scan.
+  final Scan? scan;
 
   @override
   State<CaptureScreen> createState() => _CaptureScreenState();
@@ -24,17 +28,17 @@ class _CaptureScreenState extends State<CaptureScreen> {
   bool _initializing = true;
   String? _error;
   bool _busy = false;
+  Scan? _scan; // created lazily on the first page, so empty scans never exist
 
   @override
   void initState() {
     super.initState();
+    _scan = widget.scan;
     _init();
   }
 
   Future<void> _init() async {
     try {
-      await context.read<ScanSession>().start();
-
       final cameras = await availableCameras();
       if (cameras.isEmpty) {
         throw CameraException(
@@ -85,11 +89,19 @@ class _CaptureScreenState extends State<CaptureScreen> {
       final shot = await controller.takePicture();
       if (!mounted) return;
 
-      final outcome = await Navigator.of(context).push<EditOutcome>(
-        MaterialPageRoute(builder: (_) => EditScreen(photo: File(shot.path))),
+      final photo = File(shot.path);
+      final result = await Navigator.of(context).push<EditResult>(
+        MaterialPageRoute(builder: (_) => EditScreen(original: photo)),
       );
+      if (result == null || !mounted) return; // retake
+
+      final store = context.read<ScanStore>();
+      final scan = _scan ??= await store.create();
+      await scan.addPage(photo, result.turns, result.crop, result.jpeg);
+      store.register(scan);
       if (!mounted) return;
-      if (outcome == EditOutcome.stop) {
+      setState(() {});
+      if (result.outcome == EditOutcome.stop) {
         await _finish();
       }
     } catch (e) {
@@ -103,15 +115,22 @@ class _CaptureScreenState extends State<CaptureScreen> {
     }
   }
 
-  /// Leaves the camera and moves on to saving the PDF.
+  /// Leaves the camera: back to the scan when adding pages to an existing
+  /// one, otherwise on to the new scan's page.
   Future<void> _finish() async {
+    final scan = _scan;
     final controller = _controller;
     setState(() => _controller = null);
     await controller?.dispose();
     if (!mounted) return;
-    Navigator.of(
-      context,
-    ).pushReplacement(MaterialPageRoute(builder: (_) => const ResultsScreen()));
+    final navigator = Navigator.of(context);
+    if (widget.scan != null || scan == null) {
+      navigator.pop();
+    } else {
+      navigator.pushReplacement(
+        MaterialPageRoute(builder: (_) => ScanDetailScreen(scan: scan)),
+      );
+    }
   }
 
   @override
@@ -163,7 +182,7 @@ class _CaptureScreenState extends State<CaptureScreen> {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
-    final pages = context.watch<ScanSession>().pages;
+    final pages = _scan?.pages ?? const <ScanPage>[];
 
     return Scaffold(
       backgroundColor: Colors.black,
@@ -223,7 +242,7 @@ class _CaptureScreenState extends State<CaptureScreen> {
                               ),
                               clipBehavior: Clip.antiAlias,
                               child: Image.file(
-                                pages.last.file,
+                                _scan!.renderedOf(pages.last),
                                 fit: BoxFit.cover,
                               ),
                             ),
