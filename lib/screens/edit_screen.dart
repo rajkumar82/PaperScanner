@@ -27,9 +27,9 @@ class EditScreen extends StatefulWidget {
 }
 
 class _EditScreenState extends State<EditScreen> {
-  Uint8List? _bytes; // orientation-baked, downscaled JPEG
-  Size _size = Size.zero; // pixel size of _bytes
-  int _turns = 0; // clockwise quarter turns applied on top of _bytes
+  ImageProvider? _provider; // the photo as captured
+  Size _size = Size.zero; // displayed pixel size (EXIF-oriented)
+  int _turns = 0; // clockwise quarter turns applied on top of the photo
   // Crop rectangle in the *displayed* (rotated) image, as 0..1 fractions.
   Rect _crop = const Rect.fromLTRB(0, 0, 1, 1);
   bool _saving = false;
@@ -42,18 +42,32 @@ class _EditScreenState extends State<EditScreen> {
     _load();
   }
 
+  /// Shows the camera's JPEG straight away: Flutter decodes it natively
+  /// (and applies its EXIF rotation), which is near-instant. The slow
+  /// pure-Dart decode/crop/encode only happens once, when the user taps
+  /// Next/Stop.
   Future<void> _load() async {
-    try {
-      final raw = await widget.photo.readAsBytes();
-      final result = await compute(_prepare, raw);
-      if (!mounted) return;
-      setState(() {
-        _bytes = result.bytes;
-        _size = Size(result.width.toDouble(), result.height.toDouble());
-      });
-    } catch (e) {
-      if (mounted) setState(() => _loadError = e.toString());
-    }
+    final provider = FileImage(widget.photo);
+    final stream = provider.resolve(ImageConfiguration.empty);
+    late final ImageStreamListener listener;
+    listener = ImageStreamListener(
+      (info, _) {
+        stream.removeListener(listener);
+        if (!mounted) return;
+        setState(() {
+          _provider = provider;
+          _size = Size(
+            info.image.width.toDouble(),
+            info.image.height.toDouble(),
+          );
+        });
+      },
+      onError: (e, _) {
+        stream.removeListener(listener);
+        if (mounted) setState(() => _loadError = e.toString());
+      },
+    );
+    stream.addListener(listener);
   }
 
   void _rotate(bool clockwise) {
@@ -67,13 +81,12 @@ class _EditScreenState extends State<EditScreen> {
   }
 
   Future<void> _commit(EditOutcome outcome) async {
-    final bytes = _bytes;
-    if (bytes == null || _saving) return;
+    if (_provider == null || _saving) return;
     setState(() => _saving = true);
     try {
       final session = context.read<ScanSession>();
       final out = await compute(_render, (
-        bytes: bytes,
+        path: widget.photo.path,
         turns: _turns,
         l: _crop.left,
         t: _crop.top,
@@ -96,11 +109,11 @@ class _EditScreenState extends State<EditScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final bytes = _bytes;
+    final provider = _provider;
     final aspect = _turns.isOdd
         ? _size.height / _size.width
         : _size.width / _size.height;
-    final ready = bytes != null && !_saving;
+    final ready = provider != null && !_saving;
 
     return PopScope(
       canPop: !_dragging,
@@ -131,7 +144,7 @@ class _EditScreenState extends State<EditScreen> {
                           textAlign: TextAlign.center,
                         ),
                       )
-                    : bytes == null
+                    : provider == null
                     ? const Center(child: CircularProgressIndicator())
                     : Padding(
                         padding: const EdgeInsets.symmetric(
@@ -146,8 +159,8 @@ class _EditScreenState extends State<EditScreen> {
                               children: [
                                 RotatedBox(
                                   quarterTurns: _turns,
-                                  child: Image.memory(
-                                    bytes,
+                                  child: Image(
+                                    image: provider,
                                     fit: BoxFit.fill,
                                     gaplessPlayback: true,
                                   ),
@@ -325,12 +338,12 @@ class _CropPainter extends CustomPainter {
       canvas.drawLine(Offset(rect.left, y), Offset(rect.right, y), grid);
     }
 
-    // Big, see-through handles so the image underneath stays visible.
-    final fill = Paint()..color = Colors.white.withValues(alpha: 0.28);
+    // Big, see-through purple handles so the image underneath stays visible.
+    final fill = Paint()..color = AppColors.accent2.withValues(alpha: 0.35);
     final ring = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2.5
-      ..color = Colors.white.withValues(alpha: 0.85);
+      ..color = AppColors.accent2.withValues(alpha: 0.9);
     for (final c in [
       rect.topLeft,
       rect.topRight,
@@ -348,10 +361,19 @@ class _CropPainter extends CustomPainter {
 
 // ---- isolate work ---------------------------------------------------------
 
-({Uint8List bytes, int width, int height}) _prepare(Uint8List raw) {
-  var image = img.decodeImage(raw);
+/// Rotates, crops and downsizes the original photo into the exported page.
+Uint8List _render(
+  ({String path, int turns, double l, double t, double r, double b}) a,
+) {
+  var image = img.decodeImage(File(a.path).readAsBytesSync());
   if (image == null) throw const FormatException('Unreadable photo');
   image = img.bakeOrientation(image);
+  if (a.turns != 0) image = img.copyRotate(image, angle: a.turns * 90);
+  final x = (a.l * image.width).round().clamp(0, image.width - 1);
+  final y = (a.t * image.height).round().clamp(0, image.height - 1);
+  final w = ((a.r - a.l) * image.width).round().clamp(1, image.width - x);
+  final h = ((a.b - a.t) * image.height).round().clamp(1, image.height - y);
+  image = img.copyCrop(image, x: x, y: y, width: w, height: h);
   final longest = image.width > image.height ? image.width : image.height;
   if (longest > _maxSide) {
     image = image.width >= image.height
@@ -366,22 +388,5 @@ class _CropPainter extends CustomPainter {
             interpolation: img.Interpolation.average,
           );
   }
-  return (
-    bytes: Uint8List.fromList(img.encodeJpg(image, quality: 92)),
-    width: image.width,
-    height: image.height,
-  );
-}
-
-Uint8List _render(
-  ({Uint8List bytes, int turns, double l, double t, double r, double b}) a,
-) {
-  var image = img.decodeImage(a.bytes)!;
-  if (a.turns != 0) image = img.copyRotate(image, angle: a.turns * 90);
-  final x = (a.l * image.width).round().clamp(0, image.width - 1);
-  final y = (a.t * image.height).round().clamp(0, image.height - 1);
-  final w = ((a.r - a.l) * image.width).round().clamp(1, image.width - x);
-  final h = ((a.b - a.t) * image.height).round().clamp(1, image.height - y);
-  image = img.copyCrop(image, x: x, y: y, width: w, height: h);
   return Uint8List.fromList(img.encodeJpg(image, quality: 90));
 }

@@ -22,7 +22,9 @@ class _ResultsScreenState extends State<ResultsScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('${pages.length} page${pages.length == 1 ? '' : 's'} scanned'),
+        title: Text(
+          '${pages.length} page${pages.length == 1 ? '' : 's'} scanned',
+        ),
         automaticallyImplyLeading: false,
       ),
       body: SafeArea(
@@ -58,10 +60,16 @@ class _ResultsScreenState extends State<ResultsScreen> {
                         shape: const CircleBorder(),
                         child: InkWell(
                           customBorder: const CircleBorder(),
-                          onTap: _working != null ? null : () => session.removePage(i),
+                          onTap: _working != null
+                              ? null
+                              : () => session.removePage(i),
                           child: const Padding(
                             padding: EdgeInsets.all(4),
-                            child: Icon(Icons.close, size: 16, color: Colors.white),
+                            child: Icon(
+                              Icons.close,
+                              size: 16,
+                              color: Colors.white,
+                            ),
                           ),
                         ),
                       ),
@@ -70,14 +78,20 @@ class _ResultsScreenState extends State<ResultsScreen> {
                       left: 6,
                       bottom: 6,
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 7,
+                          vertical: 2,
+                        ),
                         decoration: BoxDecoration(
                           color: Colors.black54,
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Text(
                           '${i + 1}',
-                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
                       ),
                     ),
@@ -96,7 +110,9 @@ class _ResultsScreenState extends State<ResultsScreen> {
                           icon: Icons.download,
                           label: 'Save',
                           busy: _working == 'save',
-                          onPressed: pages.isEmpty || _working != null ? null : _onSave,
+                          onPressed: pages.isEmpty || _working != null
+                              ? null
+                              : _onSave,
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -105,7 +121,9 @@ class _ResultsScreenState extends State<ResultsScreen> {
                           icon: Icons.share,
                           label: 'Share',
                           busy: _working == 'share',
-                          onPressed: pages.isEmpty || _working != null ? null : _onShare,
+                          onPressed: pages.isEmpty || _working != null
+                              ? null
+                              : _onShare,
                         ),
                       ),
                     ],
@@ -113,7 +131,10 @@ class _ResultsScreenState extends State<ResultsScreen> {
                   const SizedBox(height: 10),
                   SecondaryButton(
                     label: 'Done',
-                    onPressed: _working != null ? null : () => Navigator.of(context).popUntil((r) => r.isFirst),
+                    onPressed: _working != null
+                        ? null
+                        : () =>
+                              Navigator.of(context).popUntil((r) => r.isFirst),
                   ),
                 ],
               ),
@@ -124,14 +145,21 @@ class _ResultsScreenState extends State<ResultsScreen> {
     );
   }
 
-  Future<void> _run(String kind, Future<void> Function(ScanSession) action) async {
+  Future<void> _run(
+    String kind,
+    Future<void> Function(ScanSession) action,
+  ) async {
     setState(() => _working = kind);
     try {
       await action(context.read<ScanSession>());
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not ${kind == 'save' ? 'save' : 'share'} the PDF: $e')),
+          SnackBar(
+            content: Text(
+              'Could not ${kind == 'save' ? 'save' : 'share'} the PDF: $e',
+            ),
+          ),
         );
       }
     } finally {
@@ -140,22 +168,23 @@ class _ResultsScreenState extends State<ResultsScreen> {
   }
 
   Future<void> _onSave() => _run('save', (session) async {
-        final name = await session.savePdf();
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Saved to Downloads: $name')),
-        );
-      });
+    final name = await session.savePdf();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text('Saved to Downloads: $name')));
+  });
 
   Future<void> _onShare() => _run('share', (session) async {
-        final name = await session.saveAndSharePdf();
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(name != null
-                ? 'A copy was saved to Downloads: $name'
-                : 'Could not save a copy to Downloads'),
-          ),
-        );
-      });
+    final name = await session.saveAndSharePdf();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          name != null
+              ? 'A copy was saved to Downloads: $name'
+              : 'Could not save a copy to Downloads',
+        ),
+      ),
+    );
+  });
 }

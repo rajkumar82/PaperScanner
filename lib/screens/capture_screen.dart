@@ -37,7 +37,10 @@ class _CaptureScreenState extends State<CaptureScreen> {
 
       final cameras = await availableCameras();
       if (cameras.isEmpty) {
-        throw CameraException('no_camera', 'No camera was found on this device.');
+        throw CameraException(
+          'no_camera',
+          'No camera was found on this device.',
+        );
       }
       final camera = cameras.firstWhere(
         (c) => c.lensDirection == CameraLensDirection.back,
@@ -45,7 +48,7 @@ class _CaptureScreenState extends State<CaptureScreen> {
       );
       final controller = CameraController(
         camera,
-        ResolutionPreset.max,
+        ResolutionPreset.ultraHigh,
         enableAudio: false,
       );
       await controller.initialize();
@@ -91,9 +94,9 @@ class _CaptureScreenState extends State<CaptureScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not take the photo: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Could not take the photo: $e')));
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -106,9 +109,9 @@ class _CaptureScreenState extends State<CaptureScreen> {
     setState(() => _controller = null);
     await controller?.dispose();
     if (!mounted) return;
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => const ResultsScreen()),
-    );
+    Navigator.of(
+      context,
+    ).pushReplacement(MaterialPageRoute(builder: (_) => const ResultsScreen()));
   }
 
   @override
@@ -128,9 +131,16 @@ class _CaptureScreenState extends State<CaptureScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.error_outline, size: 48, color: Colors.redAccent),
+                const Icon(
+                  Icons.error_outline,
+                  size: 48,
+                  color: Colors.redAccent,
+                ),
                 const SizedBox(height: 12),
-                Text('Could not start the camera:\n$_error', textAlign: TextAlign.center),
+                Text(
+                  'Could not start the camera:\n$_error',
+                  textAlign: TextAlign.center,
+                ),
                 const SizedBox(height: 16),
                 PrimaryButton(
                   label: 'Retry',
@@ -170,7 +180,10 @@ class _CaptureScreenState extends State<CaptureScreen> {
                 alignment: Alignment.topLeft,
                 child: Container(
                   margin: const EdgeInsets.all(12),
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 10,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.black.withValues(alpha: 0.55),
                     borderRadius: BorderRadius.circular(kButtonRadius),
@@ -203,10 +216,16 @@ class _CaptureScreenState extends State<CaptureScreen> {
                               height: 72,
                               decoration: BoxDecoration(
                                 borderRadius: BorderRadius.circular(10),
-                                border: Border.all(color: Colors.white70, width: 2),
+                                border: Border.all(
+                                  color: Colors.white70,
+                                  width: 2,
+                                ),
                               ),
                               clipBehavior: Clip.antiAlias,
-                              child: Image.file(pages.last.file, fit: BoxFit.cover),
+                              child: Image.file(
+                                pages.last.file,
+                                fit: BoxFit.cover,
+                              ),
                             ),
                     ),
                   ),

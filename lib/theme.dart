@@ -50,15 +50,16 @@ const double kButtonHeight = 48;
 
 ThemeData buildTheme(Brightness brightness) {
   final c = brightness == Brightness.dark ? AppColors.dark : AppColors.light;
-  final scheme = ColorScheme.fromSeed(
-    seedColor: AppColors.accent,
-    brightness: brightness,
-  ).copyWith(
-    primary: AppColors.accent,
-    secondary: AppColors.accent2,
-    surface: c.card,
-    onSurface: c.text,
-  );
+  final scheme =
+      ColorScheme.fromSeed(
+        seedColor: AppColors.accent,
+        brightness: brightness,
+      ).copyWith(
+        primary: AppColors.accent,
+        secondary: AppColors.accent2,
+        surface: c.card,
+        onSurface: c.text,
+      );
   return ThemeData(
     useMaterial3: true,
     colorScheme: scheme,
@@ -114,7 +115,10 @@ class PrimaryButton extends StatelessWidget {
                       const SizedBox(
                         width: 18,
                         height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
                       )
                     else if (icon != null)
                       Icon(icon, color: Colors.white, size: 20),
@@ -180,7 +184,11 @@ class SecondaryButton extends StatelessWidget {
                   ],
                   Text(
                     label,
-                    style: TextStyle(color: fg, fontWeight: FontWeight.w700, fontSize: 16),
+                    style: TextStyle(
+                      color: fg,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 16,
+                    ),
                   ),
                 ],
               ),

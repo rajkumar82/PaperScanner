@@ -19,22 +19,25 @@ class HomeScreen extends StatelessWidget {
               children: [
                 ShaderMask(
                   shaderCallback: (r) => AppColors.grad.createShader(r),
-                  child: const Icon(Icons.document_scanner_outlined, size: 96, color: Colors.white),
+                  child: const Icon(
+                    Icons.document_scanner_outlined,
+                    size: 96,
+                    color: Colors.white,
+                  ),
                 ),
                 const SizedBox(height: 16),
                 Text(
                   'PaperScanner',
-                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
-                        color: c.text,
-                      ),
+                  style: Theme.of(context).textTheme.headlineMedium
+                      ?.copyWith(fontWeight: FontWeight.w700, color: c.text),
                 ),
                 const SizedBox(height: 8),
                 Text(
                   'Scan pages with your camera, crop and rotate each one, '
                   'then save them all as a PDF.',
                   textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: c.muted),
+                  style: Theme.of(context).textTheme.bodyMedium
+                      ?.copyWith(color: c.muted),
                 ),
                 const SizedBox(height: 32),
                 PrimaryButton(

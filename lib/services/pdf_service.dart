@@ -19,9 +19,8 @@ class PdfService {
         pw.Page(
           pageFormat: PdfPageFormat.a4,
           margin: pw.EdgeInsets.zero,
-          build: (context) => pw.Center(
-            child: pw.Image(image, fit: pw.BoxFit.contain),
-          ),
+          build: (context) =>
+              pw.Center(child: pw.Image(image, fit: pw.BoxFit.contain)),
         ),
       );
     }
@@ -29,12 +28,18 @@ class PdfService {
   }
 
   String _fileName() {
-    final stamp = DateTime.now().toIso8601String().replaceAll(RegExp(r'[:.]'), '-');
+    final stamp = DateTime.now().toIso8601String().replaceAll(
+      RegExp(r'[:.]'),
+      '-',
+    );
     return 'paperscanner_$stamp.pdf';
   }
 
   Future<String> _saveBytes(Uint8List bytes, String name) async {
-    final saved = await _channel.invokeMethod<String>('savePdf', {'name': name, 'bytes': bytes});
+    final saved = await _channel.invokeMethod<String>('savePdf', {
+      'name': name,
+      'bytes': bytes,
+    });
     return saved ?? name;
   }
 
