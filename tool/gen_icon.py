@@ -1,14 +1,13 @@
-"""Generates the launcher icon art in the shared app theme (blue->violet gradient + emoji):
-  assets/icon/icon.png        full-bleed gradient + glyph (legacy icon)
+"""Generates the launcher icon art in the shared app theme (blue->violet gradient + drawn art):
+  assets/icon/icon.png        full-bleed gradient + art (legacy icon)
   assets/icon/background.png  gradient only (adaptive icon background layer)
-  assets/icon/foreground.png  glyph on transparent (adaptive icon foreground layer)
+  assets/icon/foreground.png  art on transparent (adaptive icon foreground layer)
 Then run: dart run flutter_launcher_icons
-Needs Pillow and Windows' Segoe UI Emoji font. Usage: python tool/gen_icon.py"""
+Needs Pillow. Usage: python tool/gen_icon.py"""
 from pathlib import Path
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFilter
 
-EMOJI, C1, C2, SIZE = "📄", "#1a73e8", "#7c4dff", 1024
-FONT = "C:/Windows/Fonts/seguiemj.ttf"
+C1, C2, SIZE = "#1a73e8", "#7c4dff", 1024
 out = Path(__file__).resolve().parent.parent / "assets" / "icon"
 out.mkdir(parents=True, exist_ok=True)
 
@@ -29,22 +28,58 @@ def gradient():
     return img.convert("RGBA")
 
 
-def glyph(scale):
-    big = 136
-    layer = Image.new("RGBA", (big * 2, big * 2), (0, 0, 0, 0))
-    ImageDraw.Draw(layer).text((big, big), EMOJI, font=ImageFont.truetype(FONT, big), anchor="mm", embedded_color=True)
-    layer = layer.crop(layer.getbbox())
-    r = SIZE * scale / max(layer.size)
-    return layer.resize((round(layer.width * r), round(layer.height * r)), Image.LANCZOS)
+def art():
+    """A paper with a camera badge, drawn 2x supersampled on a transparent layer."""
+    k = 2
+    S = SIZE * k
+    layer = Image.new("RGBA", (S, S), (0, 0, 0, 0))
+    d = ImageDraw.Draw(layer)
+
+    def R(x0, y0, x1, y1):
+        return [v * k for v in (x0, y0, x1, y1)]
+
+    # soft shadow under the page
+    sh = Image.new("RGBA", (S, S), (0, 0, 0, 0))
+    ImageDraw.Draw(sh).rounded_rectangle(R(290, 230, 670, 750), radius=40 * k, fill=(20, 20, 70, 90))
+    layer.alpha_composite(sh.filter(ImageFilter.GaussianBlur(18 * k)))
+    d = ImageDraw.Draw(layer)
+
+    # page with rounded corners and a folded top-right corner
+    x0, y0, x1, y1, fold = 270, 200, 650, 720, 110
+    page = Image.new("RGBA", (S, S), (0, 0, 0, 0))
+    pd = ImageDraw.Draw(page)
+    pd.rounded_rectangle(R(x0, y0, x1, y1), radius=36 * k, fill="white")
+    pd.polygon([((x1 - fold) * k, (y0 - 1) * k), ((x1 + 1) * k, (y0 - 1) * k), ((x1 + 1) * k, (y0 + fold) * k)], fill=(0, 0, 0, 0))
+    layer.alpha_composite(page)
+    d = ImageDraw.Draw(layer)
+    d.polygon([((x1 - fold) * k, y0 * k), (x1 * k, (y0 + fold) * k), ((x1 - fold) * k, (y0 + fold) * k)], fill=(205, 210, 235, 255))
+    for i, w in enumerate((250, 250, 250, 160)):
+        y = 330 + i * 70
+        d.rounded_rectangle(R(330, y, 330 + w, y + 24), radius=12 * k, fill=(176, 184, 215, 255))
+
+    # camera badge, bottom-right, overlapping the page
+    cx0, cy0, cx1, cy1 = 440, 520, 800, 790
+    d.rounded_rectangle(R(cx0 + 20, cy0 - 40, cx0 + 140, cy0 + 20), radius=18 * k, fill=(27, 31, 42, 255))
+    d.rounded_rectangle(R(cx0 - 6, cy0 - 6, cx1 + 6, cy1 + 6), radius=62 * k, fill="white")
+    d.rounded_rectangle(R(cx0, cy0, cx1, cy1), radius=56 * k, fill=(27, 31, 42, 255))
+    mx, my = (cx0 + cx1) // 2, (cy0 + cy1) // 2 + 6
+    for r, col in ((98, "white"), (80, (45, 52, 80, 255)), (58, (26, 115, 232, 255)), (30, (124, 77, 255, 255))):
+        d.ellipse([(mx - r) * k, (my - r) * k, (mx + r) * k, (my + r) * k], fill=col)
+    d.ellipse([(mx - 36) * k, (my - 40) * k, (mx - 14) * k, (my - 18) * k], fill=(255, 255, 255, 200))
+    d.ellipse(R(cx1 - 62, cy0 + 22, cx1 - 36, cy0 + 48), fill=(255, 255, 255, 255))
+
+    out = layer.resize((SIZE, SIZE), Image.LANCZOS)
+    shifted = Image.new("RGBA", (SIZE, SIZE), (0, 0, 0, 0))
+    shifted.alpha_composite(out, (-26, 14))  # centre the art's bounding box
+    return shifted
 
 
-def with_glyph(base, scale):
-    g = glyph(scale)
-    base.alpha_composite(g, ((SIZE - g.width) // 2, (SIZE - g.height) // 2))
+def with_art(base):
+    base.alpha_composite(art())
     return base
 
 
 gradient().save(out / "background.png")
-with_glyph(gradient(), 0.55).save(out / "icon.png")
-with_glyph(Image.new("RGBA", (SIZE, SIZE), (0, 0, 0, 0)), 0.5).save(out / "foreground.png")
+with_art(gradient()).save(out / "icon.png")
+with_art(Image.new("RGBA", (SIZE, SIZE), (0, 0, 0, 0))).save(out / "foreground.png")
 print("wrote", out)
