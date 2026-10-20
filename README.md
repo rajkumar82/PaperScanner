@@ -2,7 +2,7 @@
 
 A Flutter (Android) scan-to-PDF app. Tap **Start scan**, tap the shutter to photograph a page,
 then crop (drag the corners) and rotate it. Tap **Next** to scan another page or **Stop** to
-finish, then **Save PDF** to share/save the PDF. Anything the camera sees can be scanned - no page
+finish, then **Save** (to the Downloads folder) or **Share** (also saves a copy to Downloads first, so the PDF is never lost). Anything the camera sees can be scanned - no page
 detection. UI follows the shared web-app theme (blue-to-violet gradient buttons, system light/dark).
 
 ## How it works
@@ -10,8 +10,8 @@ detection. UI follows the shared web-app theme (blue-to-violet gradient buttons,
 - **Capture** (`lib/screens/capture_screen.dart`): live preview + shutter; autofocuses first.
 - **Edit** (`lib/screens/edit_screen.dart`): rotate in 90 degree steps and a draggable crop
   rectangle; on Next/Stop the rotated + cropped page is rendered off the UI thread (`compute()`).
-- **Results** (`lib/screens/results_screen.dart`): thumbnails (remove any page), Save PDF.
-- **PDF** (`lib/services/pdf_service.dart`): one A4 page per scan, shared via Android's share sheet.
+- **Results** (`lib/screens/results_screen.dart`): thumbnails (remove any page), Save, Share.
+- **PDF** (`lib/services/pdf_service.dart`): one A4 page per scan. Saving goes through a small MediaStore channel in `MainActivity.kt` (Android 10+); Share saves first, then opens the share sheet.
 - **Theme** (`lib/theme.dart`): palette and button widgets matching fileshare/clipboard/summary.
 
 Pages live in a scratch folder under temp storage that is wiped when you tap Start scan.

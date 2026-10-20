@@ -33,6 +33,7 @@ class _EditScreenState extends State<EditScreen> {
   // Crop rectangle in the *displayed* (rotated) image, as 0..1 fractions.
   Rect _crop = const Rect.fromLTRB(0, 0, 1, 1);
   bool _saving = false;
+  bool _dragging = false; // a crop drag is in progress: ignore system back
   String? _loadError;
 
   @override
@@ -71,10 +72,14 @@ class _EditScreenState extends State<EditScreen> {
     setState(() => _saving = true);
     try {
       final session = context.read<ScanSession>();
-      final out = await compute(
-        _render,
-        (bytes: bytes, turns: _turns, l: _crop.left, t: _crop.top, r: _crop.right, b: _crop.bottom),
-      );
+      final out = await compute(_render, (
+        bytes: bytes,
+        turns: _turns,
+        l: _crop.left,
+        t: _crop.top,
+        r: _crop.right,
+        b: _crop.bottom,
+      ));
       final file = File(session.newFilePath('page.jpg'));
       await file.writeAsBytes(out, flush: true);
       session.addPage(file);
@@ -82,9 +87,9 @@ class _EditScreenState extends State<EditScreen> {
     } catch (e) {
       if (mounted) {
         setState(() => _saving = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not save the page: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Could not save the page: $e')));
       }
     }
   }
@@ -92,81 +97,102 @@ class _EditScreenState extends State<EditScreen> {
   @override
   Widget build(BuildContext context) {
     final bytes = _bytes;
-    final aspect = _turns.isOdd ? _size.height / _size.width : _size.width / _size.height;
+    final aspect = _turns.isOdd
+        ? _size.height / _size.width
+        : _size.width / _size.height;
     final ready = bytes != null && !_saving;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Crop & rotate'),
-        actions: [
-          IconButton(
-            tooltip: 'Rotate left',
-            onPressed: ready ? () => _rotate(false) : null,
-            icon: const Icon(Icons.rotate_left),
-          ),
-          IconButton(
-            tooltip: 'Rotate right',
-            onPressed: ready ? () => _rotate(true) : null,
-            icon: const Icon(Icons.rotate_right),
-          ),
-        ],
-      ),
-      body: SafeArea(
-        child: Column(
-          children: [
-            Expanded(
-              child: _loadError != null
-                  ? Center(child: Text('Could not read the photo:\n$_loadError', textAlign: TextAlign.center))
-                  : bytes == null
-                      ? const Center(child: CircularProgressIndicator())
-                      : Padding(
-                          padding: const EdgeInsets.all(20),
-                          child: Center(
-                            child: AspectRatio(
-                              aspectRatio: aspect,
-                              child: Stack(
-                                fit: StackFit.expand,
-                                children: [
-                                  RotatedBox(
-                                    quarterTurns: _turns,
-                                    child: Image.memory(bytes, fit: BoxFit.fill, gaplessPlayback: true),
+    return PopScope(
+      canPop: !_dragging,
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('Crop & rotate'),
+          actions: [
+            IconButton(
+              tooltip: 'Rotate left',
+              onPressed: ready ? () => _rotate(false) : null,
+              icon: const Icon(Icons.rotate_left),
+            ),
+            IconButton(
+              tooltip: 'Rotate right',
+              onPressed: ready ? () => _rotate(true) : null,
+              icon: const Icon(Icons.rotate_right),
+            ),
+          ],
+        ),
+        body: SafeArea(
+          child: Column(
+            children: [
+              Expanded(
+                child: _loadError != null
+                    ? Center(
+                        child: Text(
+                          'Could not read the photo:\n$_loadError',
+                          textAlign: TextAlign.center,
+                        ),
+                      )
+                    : bytes == null
+                    ? const Center(child: CircularProgressIndicator())
+                    : Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 40,
+                          vertical: 24,
+                        ),
+                        child: Center(
+                          child: AspectRatio(
+                            aspectRatio: aspect,
+                            child: Stack(
+                              fit: StackFit.expand,
+                              children: [
+                                RotatedBox(
+                                  quarterTurns: _turns,
+                                  child: Image.memory(
+                                    bytes,
+                                    fit: BoxFit.fill,
+                                    gaplessPlayback: true,
                                   ),
-                                  _CropOverlay(
-                                    rect: _crop,
-                                    onChanged: (r) => setState(() => _crop = r),
-                                  ),
-                                ],
-                              ),
+                                ),
+                                _CropOverlay(
+                                  rect: _crop,
+                                  onChanged: (r) => setState(() => _crop = r),
+                                  onDragging: (v) =>
+                                      setState(() => _dragging = v),
+                                ),
+                              ],
                             ),
                           ),
                         ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
-              child: Row(
-                children: [
-                  SecondaryButton(
-                    icon: Icons.replay,
-                    label: 'Retake',
-                    onPressed: _saving ? null : () => Navigator.of(context).pop(),
-                  ),
-                  const Spacer(),
-                  SecondaryButton(
-                    icon: Icons.stop,
-                    label: 'Stop',
-                    onPressed: ready ? () => _commit(EditOutcome.stop) : null,
-                  ),
-                  const SizedBox(width: 10),
-                  PrimaryButton(
-                    icon: Icons.arrow_forward,
-                    label: 'Next',
-                    busy: _saving,
-                    onPressed: ready ? () => _commit(EditOutcome.next) : null,
-                  ),
-                ],
+                      ),
               ),
-            ),
-          ],
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+                child: Row(
+                  children: [
+                    SecondaryButton(
+                      icon: Icons.replay,
+                      label: 'Retake',
+                      onPressed: _saving
+                          ? null
+                          : () => Navigator.of(context).pop(),
+                    ),
+                    const Spacer(),
+                    SecondaryButton(
+                      icon: Icons.stop,
+                      label: 'Stop',
+                      onPressed: ready ? () => _commit(EditOutcome.stop) : null,
+                    ),
+                    const SizedBox(width: 10),
+                    PrimaryButton(
+                      icon: Icons.arrow_forward,
+                      label: 'Next',
+                      busy: _saving,
+                      onPressed: ready ? () => _commit(EditOutcome.next) : null,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -175,17 +201,22 @@ class _EditScreenState extends State<EditScreen> {
 
 /// Draggable crop rectangle: drag a corner to resize, drag inside to move.
 class _CropOverlay extends StatefulWidget {
-  const _CropOverlay({required this.rect, required this.onChanged});
+  const _CropOverlay({
+    required this.rect,
+    required this.onChanged,
+    required this.onDragging,
+  });
 
   final Rect rect;
   final ValueChanged<Rect> onChanged;
+  final ValueChanged<bool> onDragging;
 
   @override
   State<_CropOverlay> createState() => _CropOverlayState();
 }
 
 class _CropOverlayState extends State<_CropOverlay> {
-  static const double _grab = 44; // px radius for grabbing a corner
+  static const double _grab = 56; // px radius for grabbing a corner
   static const double _minFrac = 0.08;
 
   int? _corner; // 0 TL, 1 TR, 2 BR, 3 BL
@@ -193,52 +224,73 @@ class _CropOverlayState extends State<_CropOverlay> {
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(builder: (context, box) {
-      final size = box.biggest;
-      Rect px(Rect f) => Rect.fromLTRB(
-            f.left * size.width,
-            f.top * size.height,
-            f.right * size.width,
-            f.bottom * size.height,
-          );
+    return LayoutBuilder(
+      builder: (context, box) {
+        final size = box.biggest;
+        Rect px(Rect f) => Rect.fromLTRB(
+          f.left * size.width,
+          f.top * size.height,
+          f.right * size.width,
+          f.bottom * size.height,
+        );
 
-      return GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onPanStart: (d) {
-          final r = px(widget.rect);
-          final corners = [r.topLeft, r.topRight, r.bottomRight, r.bottomLeft];
-          int? best;
-          var bestDist = _grab;
-          for (var i = 0; i < 4; i++) {
-            final dist = (corners[i] - d.localPosition).distance;
-            if (dist < bestDist) {
-              best = i;
-              bestDist = dist;
+        return GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onPanStart: (d) {
+            widget.onDragging(true);
+            final r = px(widget.rect);
+            final corners = [
+              r.topLeft,
+              r.topRight,
+              r.bottomRight,
+              r.bottomLeft,
+            ];
+            int? best;
+            var bestDist = _grab;
+            for (var i = 0; i < 4; i++) {
+              final dist = (corners[i] - d.localPosition).distance;
+              if (dist < bestDist) {
+                best = i;
+                bestDist = dist;
+              }
             }
-          }
-          _corner = best;
-          _moving = best == null && r.contains(d.localPosition);
-        },
-        onPanUpdate: (d) {
-          final dx = d.delta.dx / size.width;
-          final dy = d.delta.dy / size.height;
-          final r = widget.rect;
-          if (_corner != null) {
-            var l = r.left, t = r.top, rr = r.right, b = r.bottom;
-            if (_corner == 0 || _corner == 3) l = (l + dx).clamp(0.0, rr - _minFrac);
-            if (_corner == 1 || _corner == 2) rr = (rr + dx).clamp(l + _minFrac, 1.0);
-            if (_corner == 0 || _corner == 1) t = (t + dy).clamp(0.0, b - _minFrac);
-            if (_corner == 2 || _corner == 3) b = (b + dy).clamp(t + _minFrac, 1.0);
-            widget.onChanged(Rect.fromLTRB(l, t, rr, b));
-          } else if (_moving) {
-            final mx = dx.clamp(-r.left, 1 - r.right);
-            final my = dy.clamp(-r.top, 1 - r.bottom);
-            widget.onChanged(r.shift(Offset(mx, my)));
-          }
-        },
-        child: CustomPaint(size: size, painter: _CropPainter(px(widget.rect))),
-      );
-    });
+            _corner = best;
+            _moving = best == null && r.contains(d.localPosition);
+          },
+          onPanEnd: (_) => widget.onDragging(false),
+          onPanCancel: () => widget.onDragging(false),
+          onPanUpdate: (d) {
+            final dx = d.delta.dx / size.width;
+            final dy = d.delta.dy / size.height;
+            final r = widget.rect;
+            if (_corner != null) {
+              var l = r.left, t = r.top, rr = r.right, b = r.bottom;
+              if (_corner == 0 || _corner == 3) {
+                l = (l + dx).clamp(0.0, rr - _minFrac);
+              }
+              if (_corner == 1 || _corner == 2) {
+                rr = (rr + dx).clamp(l + _minFrac, 1.0);
+              }
+              if (_corner == 0 || _corner == 1) {
+                t = (t + dy).clamp(0.0, b - _minFrac);
+              }
+              if (_corner == 2 || _corner == 3) {
+                b = (b + dy).clamp(t + _minFrac, 1.0);
+              }
+              widget.onChanged(Rect.fromLTRB(l, t, rr, b));
+            } else if (_moving) {
+              final mx = dx.clamp(-r.left, 1 - r.right);
+              final my = dy.clamp(-r.top, 1 - r.bottom);
+              widget.onChanged(r.shift(Offset(mx, my)));
+            }
+          },
+          child: CustomPaint(
+            size: size,
+            painter: _CropPainter(px(widget.rect)),
+          ),
+        );
+      },
+    );
   }
 }
 
@@ -273,11 +325,20 @@ class _CropPainter extends CustomPainter {
       canvas.drawLine(Offset(rect.left, y), Offset(rect.right, y), grid);
     }
 
-    final handle = Paint()..color = AppColors.accent;
-    final ring = Paint()..color = Colors.white;
-    for (final c in [rect.topLeft, rect.topRight, rect.bottomRight, rect.bottomLeft]) {
-      canvas.drawCircle(c, 11, ring);
-      canvas.drawCircle(c, 8, handle);
+    // Big, see-through handles so the image underneath stays visible.
+    final fill = Paint()..color = Colors.white.withValues(alpha: 0.28);
+    final ring = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.5
+      ..color = Colors.white.withValues(alpha: 0.85);
+    for (final c in [
+      rect.topLeft,
+      rect.topRight,
+      rect.bottomRight,
+      rect.bottomLeft,
+    ]) {
+      canvas.drawCircle(c, 18, fill);
+      canvas.drawCircle(c, 18, ring);
     }
   }
 
@@ -294,8 +355,16 @@ class _CropPainter extends CustomPainter {
   final longest = image.width > image.height ? image.width : image.height;
   if (longest > _maxSide) {
     image = image.width >= image.height
-        ? img.copyResize(image, width: _maxSide, interpolation: img.Interpolation.average)
-        : img.copyResize(image, height: _maxSide, interpolation: img.Interpolation.average);
+        ? img.copyResize(
+            image,
+            width: _maxSide,
+            interpolation: img.Interpolation.average,
+          )
+        : img.copyResize(
+            image,
+            height: _maxSide,
+            interpolation: img.Interpolation.average,
+          );
   }
   return (
     bytes: Uint8List.fromList(img.encodeJpg(image, quality: 92)),
@@ -304,7 +373,9 @@ class _CropPainter extends CustomPainter {
   );
 }
 
-Uint8List _render(({Uint8List bytes, int turns, double l, double t, double r, double b}) a) {
+Uint8List _render(
+  ({Uint8List bytes, int turns, double l, double t, double r, double b}) a,
+) {
   var image = img.decodeImage(a.bytes)!;
   if (a.turns != 0) image = img.copyRotate(image, angle: a.turns * 90);
   final x = (a.l * image.width).round().clamp(0, image.width - 1);

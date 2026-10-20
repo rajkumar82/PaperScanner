@@ -51,5 +51,7 @@ class ScanSession extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> sharePdf() => _pdf.shareAsPdf(_pages);
+  Future<String> savePdf() => _pdf.saveToDownloads(_pages);
+
+  Future<String?> saveAndSharePdf() => _pdf.saveAndShare(_pages);
 }

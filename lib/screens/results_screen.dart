@@ -12,7 +12,7 @@ class ResultsScreen extends StatefulWidget {
 }
 
 class _ResultsScreenState extends State<ResultsScreen> {
-  bool _saving = false;
+  String? _working; // 'save' | 'share' while a PDF is being made
 
   @override
   Widget build(BuildContext context) {
@@ -58,7 +58,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
                         shape: const CircleBorder(),
                         child: InkWell(
                           customBorder: const CircleBorder(),
-                          onTap: _saving ? null : () => session.removePage(i),
+                          onTap: _working != null ? null : () => session.removePage(i),
                           child: const Padding(
                             padding: EdgeInsets.all(4),
                             child: Icon(Icons.close, size: 16, color: Colors.white),
@@ -87,20 +87,33 @@ class _ResultsScreenState extends State<ResultsScreen> {
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
-              child: Row(
+              child: Column(
                 children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: PrimaryButton(
+                          icon: Icons.download,
+                          label: 'Save',
+                          busy: _working == 'save',
+                          onPressed: pages.isEmpty || _working != null ? null : _onSave,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: PrimaryButton(
+                          icon: Icons.share,
+                          label: 'Share',
+                          busy: _working == 'share',
+                          onPressed: pages.isEmpty || _working != null ? null : _onShare,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
                   SecondaryButton(
                     label: 'Done',
-                    onPressed: _saving ? null : () => Navigator.of(context).popUntil((r) => r.isFirst),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: PrimaryButton(
-                      icon: Icons.picture_as_pdf,
-                      label: 'Save PDF',
-                      busy: _saving,
-                      onPressed: pages.isEmpty ? null : _onSave,
-                    ),
+                    onPressed: _working != null ? null : () => Navigator.of(context).popUntil((r) => r.isFirst),
                   ),
                 ],
               ),
@@ -111,18 +124,38 @@ class _ResultsScreenState extends State<ResultsScreen> {
     );
   }
 
-  Future<void> _onSave() async {
-    setState(() => _saving = true);
+  Future<void> _run(String kind, Future<void> Function(ScanSession) action) async {
+    setState(() => _working = kind);
     try {
-      await context.read<ScanSession>().sharePdf();
+      await action(context.read<ScanSession>());
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not create the PDF: $e')),
+          SnackBar(content: Text('Could not ${kind == 'save' ? 'save' : 'share'} the PDF: $e')),
         );
       }
     } finally {
-      if (mounted) setState(() => _saving = false);
+      if (mounted) setState(() => _working = null);
     }
   }
+
+  Future<void> _onSave() => _run('save', (session) async {
+        final name = await session.savePdf();
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Saved to Downloads: $name')),
+        );
+      });
+
+  Future<void> _onShare() => _run('share', (session) async {
+        final name = await session.saveAndSharePdf();
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(name != null
+                ? 'A copy was saved to Downloads: $name'
+                : 'Could not save a copy to Downloads'),
+          ),
+        );
+      });
 }
