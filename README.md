@@ -39,9 +39,10 @@ Distributed as an Android APK via GitHub Releases, not the Play Store. The summa
 `releases/latest/download/paperscanner.apk`, which always resolves to the newest release - so
 every release's APK asset must keep that exact filename:
 
-    flutter build apk --release
-    cp build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/paperscanner.apk
-    gh release create vX.Y.Z build/app/outputs/flutter-apk/paperscanner.apk \
+    flutter build apk --release --split-per-abi     # ~18 MB each instead of one ~50 MB fat APK
+    cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk build/app/outputs/flutter-apk/paperscanner.apk
+    cp build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk build/app/outputs/flutter-apk/paperscanner-armv7.apk
+    gh release create vX.Y.Z build/app/outputs/flutter-apk/paperscanner.apk build/app/outputs/flutter-apk/paperscanner-armv7.apk \
       -R rajkumar82/PaperScanner --title "PaperScanner vX.Y.Z" --notes "..."
 
 Tag the release to match the version in `pubspec.yaml`.
