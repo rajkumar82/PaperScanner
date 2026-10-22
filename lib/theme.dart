@@ -18,7 +18,8 @@ class AppColors {
   static const LinearGradient grad = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [accent, accent2],
+    colors: [Color(0xFF5B4BFF), Color(0xFF3A2BD0), Color(0xFF1C1165)],
+    stops: [0, 0.55, 1],
   );
 
   final Color bg, card, card2, text, muted, line;
